@@ -7,6 +7,10 @@
 
 import SwiftUI
 
+// MARK: - Main Content View
+
+/// Main content coordinator that manages authentication flow
+/// Shows LoginView for unauthenticated users, RetailDashboardView for authenticated users
 struct ContentView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     

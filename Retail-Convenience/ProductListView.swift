@@ -7,20 +7,16 @@
 
 import SwiftUI
 
-struct Product {
-    let id = UUID()
-    let name: String
-    let price: Double
-    let description: String
-    let inStock: Bool
-    let stockCount: Int
-}
+// MARK: - Product List View (Legacy)
+// Note: This view is currently unused but kept for potential future features
 
+/// Legacy product list view for individual category navigation
+/// Currently unused - replaced by horizontal scrolling in dashboard
 struct ProductListView: View {
     let category: ProductCategory
     
     var products: [Product] {
-        generateProducts(for: category)
+        ProductDataProvider.generateProducts(for: category)
     }
     
     var body: some View {
@@ -75,43 +71,7 @@ struct ProductListView: View {
         .navigationBarHidden(true)
     }
     
-    private func generateProducts(for category: ProductCategory) -> [Product] {
-        switch category.name {
-        case "Beverages":
-            return [
-                Product(name: "Coca-Cola 12oz", price: 1.99, description: "Classic cola soft drink", inStock: true, stockCount: 24),
-                Product(name: "Pepsi 12oz", price: 1.99, description: "Cola soft drink", inStock: true, stockCount: 18),
-                Product(name: "Sprite 12oz", price: 1.99, description: "Lemon-lime soda", inStock: true, stockCount: 15),
-                Product(name: "Orange Juice 16oz", price: 3.49, description: "Fresh squeezed orange juice", inStock: true, stockCount: 12),
-                Product(name: "Water Bottle 16.9oz", price: 0.99, description: "Purified drinking water", inStock: true, stockCount: 48),
-                Product(name: "Energy Drink 16oz", price: 2.99, description: "High caffeine energy drink", inStock: false, stockCount: 0),
-                Product(name: "Iced Tea 20oz", price: 2.49, description: "Sweet tea beverage", inStock: true, stockCount: 8)
-            ]
-        case "Snacks":
-            return [
-                Product(name: "Lay's Potato Chips", price: 2.99, description: "Classic salted potato chips", inStock: true, stockCount: 16),
-                Product(name: "Doritos Nacho Cheese", price: 3.49, description: "Nacho cheese flavored tortilla chips", inStock: true, stockCount: 12),
-                Product(name: "Snickers Bar", price: 1.49, description: "Chocolate bar with peanuts and caramel", inStock: true, stockCount: 32),
-                Product(name: "Pringles Original", price: 2.79, description: "Stackable potato crisps", inStock: true, stockCount: 8),
-                Product(name: "Trail Mix", price: 4.99, description: "Mixed nuts, dried fruit, and chocolate", inStock: true, stockCount: 6),
-                Product(name: "Beef Jerky", price: 6.99, description: "Original flavored beef jerky", inStock: false, stockCount: 0)
-            ]
-        case "Dairy":
-            return [
-                Product(name: "Milk 1 Gallon", price: 3.99, description: "Whole milk", inStock: true, stockCount: 8),
-                Product(name: "Greek Yogurt", price: 1.29, description: "Plain Greek yogurt cup", inStock: true, stockCount: 15),
-                Product(name: "Cheddar Cheese", price: 4.49, description: "Sharp cheddar cheese block", inStock: true, stockCount: 6),
-                Product(name: "Butter 1lb", price: 4.99, description: "Salted butter", inStock: true, stockCount: 4),
-                Product(name: "Cream Cheese", price: 2.99, description: "Philadelphia cream cheese", inStock: true, stockCount: 7)
-            ]
-        default:
-            return [
-                Product(name: "Sample Product 1", price: 9.99, description: "Description for sample product", inStock: true, stockCount: 10),
-                Product(name: "Sample Product 2", price: 14.99, description: "Another sample product", inStock: false, stockCount: 0),
-                Product(name: "Sample Product 3", price: 7.49, description: "Third sample product", inStock: true, stockCount: 5)
-            ]
-        }
-    }
+
 }
 
 struct NavigationBackButton: View {

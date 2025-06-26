@@ -7,58 +7,14 @@
 
 import SwiftUI
 
-struct CartItem {
-    let id = UUID()
-    let product: Product
-    var quantity: Int
-    
-    var totalPrice: Double {
-        product.price * Double(quantity)
-    }
-}
+// MARK: - Cart View
 
-class CartManager: ObservableObject {
-    @Published var items: [CartItem] = []
-    
-    var totalPrice: Double {
-        items.reduce(0) { $0 + $1.totalPrice }
-    }
-    
-    var totalItems: Int {
-        items.reduce(0) { $0 + $1.quantity }
-    }
-    
-    func addItem(_ product: Product) {
-        if let existingItem = items.first(where: { $0.product.id == product.id }) {
-            updateQuantity(for: existingItem.id, quantity: existingItem.quantity + 1)
-        } else {
-            items.append(CartItem(product: product, quantity: 1))
-        }
-    }
-    
-    func removeItem(_ itemId: UUID) {
-        items.removeAll { $0.id == itemId }
-    }
-    
-    func updateQuantity(for itemId: UUID, quantity: Int) {
-        if quantity <= 0 {
-            removeItem(itemId)
-        } else {
-            if let index = items.firstIndex(where: { $0.id == itemId }) {
-                items[index] = CartItem(product: items[index].product, quantity: quantity)
-            }
-        }
-    }
-    
-    func clearCart() {
-        items.removeAll()
-    }
-}
-
+/// Main cart view displaying items, order summary, and payment form
 struct CartView: View {
     @ObservedObject var cartManager: CartManager
     @Binding var isPresented: Bool
     
+    // MARK: - Payment Form State
     @State private var customerName = ""
     @State private var customerEmail = ""
     @State private var cardNumber = ""
@@ -242,10 +198,18 @@ struct CartView: View {
         }
     }
     
+    // MARK: - Payment Processing
+    
+    /// Processes the payment and handles success flow
     private func processPayment() {
         // Save payment info if requested
         if savePaymentInfo {
-            savePaymentInformation()
+            PaymentManager.savePaymentInformation(
+                name: customerName,
+                email: customerEmail,
+                cardNumber: cardNumber,
+                expiryDate: expiryDate
+            )
         }
         
         // Simulate payment processing
@@ -254,25 +218,21 @@ struct CartView: View {
         }
     }
     
-    private func savePaymentInformation() {
-        UserDefaults.standard.set(customerName, forKey: "saved_customer_name")
-        UserDefaults.standard.set(customerEmail, forKey: "saved_customer_email")
-        UserDefaults.standard.set(cardNumber, forKey: "saved_card_number")
-        UserDefaults.standard.set(expiryDate, forKey: "saved_expiry_date")
-        // Note: In a real app, you'd never save CVV or use proper encryption
-    }
-    
+    /// Loads previously saved payment information if available
     private func loadSavedPaymentInfo() {
-        if let savedName = UserDefaults.standard.string(forKey: "saved_customer_name"), !savedName.isEmpty {
-            customerName = savedName
-            customerEmail = UserDefaults.standard.string(forKey: "saved_customer_email") ?? ""
-            cardNumber = UserDefaults.standard.string(forKey: "saved_card_number") ?? ""
-            expiryDate = UserDefaults.standard.string(forKey: "saved_expiry_date") ?? ""
+        if let savedInfo = PaymentManager.loadSavedPaymentInfo() {
+            customerName = savedInfo.name
+            customerEmail = savedInfo.email
+            cardNumber = savedInfo.cardNumber
+            expiryDate = savedInfo.expiryDate
             savePaymentInfo = true
         }
     }
 }
 
+// MARK: - Cart Item Row
+
+/// Individual cart item row with quantity controls
 struct CartItemRow: View {
     let item: CartItem
     @ObservedObject var cartManager: CartManager
@@ -347,6 +307,9 @@ struct CartItemRow: View {
     }
 }
 
+// MARK: - Payment Form
+
+/// Payment form with customer information and card details
 struct PaymentForm: View {
     @Binding var customerName: String
     @Binding var customerEmail: String
@@ -431,6 +394,9 @@ struct PaymentForm: View {
     }
 }
 
+// MARK: - Payment Text Field
+
+/// Custom text field for payment form inputs
 struct PaymentTextField: View {
     @Binding var text: String
     let placeholder: String
@@ -459,6 +425,8 @@ struct PaymentTextField: View {
         )
     }
 }
+
+// MARK: - Previews
 
 #Preview {
     CartView(cartManager: CartManager(), isPresented: .constant(true))

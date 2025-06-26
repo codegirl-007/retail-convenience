@@ -7,25 +7,13 @@
 
 import SwiftUI
 
-struct ProductCategory {
-    let id = UUID()
-    let name: String
-    let icon: String
-    let color: Color
-    let itemCount: Int
-}
+// MARK: - Main Dashboard View
 
+/// Main dashboard displaying product categories and cart functionality
 struct RetailDashboardView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     @StateObject private var cartManager = CartManager()
     @State private var showingCart = false
-    
-    let categories = [
-        ProductCategory(name: "Beverages", icon: "cup.and.saucer.fill", color: .blue, itemCount: 45),
-        ProductCategory(name: "Snacks", icon: "bag.fill", color: .orange, itemCount: 32),
-        ProductCategory(name: "Health", icon: "cross.fill", color: .green, itemCount: 22),
-        ProductCategory(name: "Personal Care", icon: "heart.fill", color: .pink, itemCount: 28)
-    ]
     
     var body: some View {
         ZStack {
@@ -66,7 +54,7 @@ struct RetailDashboardView: View {
                 // Categories with horizontal product scrolls
                 ScrollView {
                     LazyVStack(spacing: 32) {
-                        ForEach(categories, id: \.id) { category in
+                        ForEach(ProductDataProvider.categories, id: \.id) { category in
                             CategorySection(category: category, cartManager: cartManager)
                         }
                     }
@@ -121,12 +109,16 @@ struct RetailDashboardView: View {
     }
 }
 
+// MARK: - Category Section
+
+/// Displays a category header with horizontally scrollable products
 struct CategorySection: View {
     let category: ProductCategory
     @ObservedObject var cartManager: CartManager
     
+    /// Products for this category
     var products: [Product] {
-        generateProducts(for: category)
+        ProductDataProvider.generateProducts(for: category)
     }
     
     var body: some View {
@@ -177,57 +169,12 @@ struct CategorySection: View {
         }
     }
     
-    private func generateProducts(for category: ProductCategory) -> [Product] {
-        switch category.name {
-        case "Beverages":
-            return [
-                Product(name: "Coca-Cola 12oz", price: 1.99, description: "Classic cola soft drink", inStock: true, stockCount: 24),
-                Product(name: "Pepsi 12oz", price: 1.99, description: "Cola soft drink", inStock: true, stockCount: 18),
-                Product(name: "Sprite 12oz", price: 1.99, description: "Lemon-lime soda", inStock: true, stockCount: 15),
-                Product(name: "Orange Juice 16oz", price: 3.49, description: "Fresh squeezed orange juice", inStock: true, stockCount: 12),
-                Product(name: "Water Bottle 16.9oz", price: 0.99, description: "Purified drinking water", inStock: true, stockCount: 48),
-                Product(name: "Energy Drink 16oz", price: 2.99, description: "High caffeine energy drink", inStock: false, stockCount: 0),
-                Product(name: "Iced Tea 20oz", price: 2.49, description: "Sweet tea beverage", inStock: true, stockCount: 8)
-            ]
-        case "Snacks":
-            return [
-                Product(name: "Lay's Potato Chips", price: 2.99, description: "Classic salted potato chips", inStock: true, stockCount: 16),
-                Product(name: "Doritos Nacho Cheese", price: 3.49, description: "Nacho cheese flavored tortilla chips", inStock: true, stockCount: 12),
-                Product(name: "Snickers Bar", price: 1.49, description: "Chocolate bar with peanuts and caramel", inStock: true, stockCount: 32),
-                Product(name: "Pringles Original", price: 2.79, description: "Stackable potato crisps", inStock: true, stockCount: 8),
-                Product(name: "Trail Mix", price: 4.99, description: "Mixed nuts, dried fruit, and chocolate", inStock: true, stockCount: 6),
-                Product(name: "Beef Jerky", price: 6.99, description: "Original flavored beef jerky", inStock: false, stockCount: 0)
-            ]
 
-        case "Health":
-            return [
-                Product(name: "Multivitamins", price: 12.99, description: "Daily vitamin supplement", inStock: true, stockCount: 15),
-                Product(name: "Pain Relief", price: 6.99, description: "Ibuprofen 200mg tablets", inStock: true, stockCount: 8),
-                Product(name: "Allergy Medicine", price: 8.49, description: "24-hour allergy relief", inStock: true, stockCount: 12),
-                Product(name: "Cough Drops", price: 2.99, description: "Honey lemon cough drops", inStock: true, stockCount: 20),
-                Product(name: "Thermometer", price: 15.99, description: "Digital thermometer", inStock: true, stockCount: 5),
-                Product(name: "Hand Sanitizer", price: 3.49, description: "70% alcohol hand sanitizer", inStock: false, stockCount: 0),
-                Product(name: "First Aid Kit", price: 19.99, description: "Complete first aid kit", inStock: true, stockCount: 3)
-            ]
-        case "Personal Care":
-            return [
-                Product(name: "Toothpaste", price: 3.99, description: "Fluoride toothpaste", inStock: true, stockCount: 10),
-                Product(name: "Shampoo", price: 5.99, description: "Daily care shampoo", inStock: true, stockCount: 8),
-                Product(name: "Body Wash", price: 4.49, description: "Moisturizing body wash", inStock: true, stockCount: 12),
-                Product(name: "Deodorant", price: 3.49, description: "24-hour protection", inStock: false, stockCount: 0),
-                Product(name: "Toothbrush", price: 2.99, description: "Soft bristle toothbrush", inStock: true, stockCount: 18),
-                Product(name: "Face Wash", price: 6.99, description: "Gentle daily face cleanser", inStock: true, stockCount: 9)
-            ]
-        default:
-            return [
-                Product(name: "Sample Product 1", price: 9.99, description: "Description for sample product", inStock: true, stockCount: 10),
-                Product(name: "Sample Product 2", price: 14.99, description: "Another sample product", inStock: false, stockCount: 0),
-                Product(name: "Sample Product 3", price: 7.49, description: "Third sample product", inStock: true, stockCount: 5)
-            ]
-        }
-    }
 }
 
+// MARK: - Product Card
+
+/// Individual product card with add to cart functionality
 struct ProductCard: View {
     let product: Product
     let categoryColor: Color
@@ -358,6 +305,9 @@ struct ProductCard: View {
         .clipped()
     }
     
+    // MARK: - Actions
+    
+    /// Handles adding the product to the cart with visual feedback
     private func addToCart() {
         guard product.inStock else { return }
         
@@ -375,6 +325,9 @@ struct ProductCard: View {
     }
 }
 
+// MARK: - Corner Banner
+
+/// Diagonal corner banner for special product states (low stock, sales, etc.)
 struct CornerBanner: View {
     let text: String
     let color: Color
@@ -404,6 +357,8 @@ struct CornerBanner: View {
         .frame(width: 50, height: 50)
     }
 }
+
+// MARK: - Previews
 
 #Preview {
     RetailDashboardView()

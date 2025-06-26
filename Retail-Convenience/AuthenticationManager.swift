@@ -7,6 +7,10 @@
 
 import SwiftUI
 
+// MARK: - Authentication Manager
+
+/// Manages user authentication state throughout the app
+/// Demo implementation with hardcoded credentials
 class AuthenticationManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: String = ""

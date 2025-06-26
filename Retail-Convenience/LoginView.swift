@@ -7,6 +7,10 @@
 
 import SwiftUI
 
+// MARK: - Login View
+
+/// Authentication screen with username and password input
+/// Demo credentials: username="admin", password="password"
 struct LoginView: View {
     @State private var username = ""
     @State private var password = ""
