@@ -291,42 +291,42 @@ struct CartItemRow: View {
             }
             
             // Product Details
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(item.product.name)
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(1)
                 
-                Text("$\(item.product.price, specifier: "%.2f") each")
+                Text("$\(item.product.price, specifier: "%.2f")/ea")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.white.opacity(0.7))
+                
+                // Quantity Controls
+                HStack(spacing: 4) {
+                    Button(action: {
+                        cartManager.updateQuantity(for: item.id, quantity: item.quantity - 1)
+                    }) {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(.red)
+                    }
+                    
+                    Text("\(item.quantity)")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(minWidth: 16)
+                    
+                    Button(action: {
+                        cartManager.updateQuantity(for: item.id, quantity: item.quantity + 1)
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(.green)
+                    }
+                }
             }
             
             Spacer()
-            
-            // Quantity Controls
-            HStack(spacing: 12) {
-                Button(action: {
-                    cartManager.updateQuantity(for: item.id, quantity: item.quantity - 1)
-                }) {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.red)
-                }
-                
-                Text("\(item.quantity)")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(minWidth: 30)
-                
-                Button(action: {
-                    cartManager.updateQuantity(for: item.id, quantity: item.quantity + 1)
-                }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.green)
-                }
-            }
             
             // Total Price
             VStack(alignment: .trailing, spacing: 4) {

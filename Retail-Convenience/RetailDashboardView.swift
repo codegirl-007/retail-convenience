@@ -285,7 +285,7 @@ struct ProductCard: View {
                         }
                         
                         if !isAddingToCart {
-                            Text(showAddedFeedback ? "Added" : "Add")
+                            Text(showAddedFeedback ? "Added" : (product.inStock ? "Add" : "Sold Out"))
                                 .font(.system(size: 12, weight: .bold))
                         }
                     }
@@ -296,7 +296,9 @@ struct ProductCard: View {
                         RoundedRectangle(cornerRadius: 16)
                             .fill(
                                 LinearGradient(
-                                    colors: showAddedFeedback ? 
+                                    colors: !product.inStock ? 
+                                        [Color.gray, Color.gray.opacity(0.7)] :
+                                        showAddedFeedback ? 
                                         [Color.green, Color.green.opacity(0.8)] :
                                         [Color.green, Color.green.opacity(0.7)],
                                     startPoint: .topLeading,
@@ -345,6 +347,15 @@ struct ProductCard: View {
                         )
                 )
         )
+        .overlay(
+            // Corner Banner for Low Stock
+            Group {
+                if product.inStock && product.stockCount < 5 {
+                    CornerBanner(text: "Going fast!", color: .orange)
+                }
+            }
+        )
+        .clipped()
     }
     
     private func addToCart() {
@@ -361,6 +372,36 @@ struct ProductCard: View {
                 showAddedFeedback = false
             }
         }
+    }
+}
+
+struct CornerBanner: View {
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        ZStack {
+            // Banner background
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [color, color.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 80, height: 20)
+                .rotationEffect(.degrees(45))
+                .shadow(color: color.opacity(0.3), radius: 2, x: 1, y: 1)
+            
+            // Banner text
+            Text(text)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+                .rotationEffect(.degrees(45))
+        }
+        .offset(x: 70, y: -85)
+        .frame(width: 50, height: 50)
     }
 }
 
