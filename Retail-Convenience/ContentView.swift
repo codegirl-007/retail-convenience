@@ -8,17 +8,23 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var authManager: AuthenticationManager
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if authManager.isAuthenticated {
+                RetailDashboardView()
+            } else {
+                LoginView {
+                    authManager.isAuthenticated = true
+                }
+            }
         }
-        .padding()
+        .animation(.easeInOut(duration: 0.5), value: authManager.isAuthenticated)
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(AuthenticationManager())
 }
