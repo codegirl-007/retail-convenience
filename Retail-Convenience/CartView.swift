@@ -40,7 +40,9 @@ struct CartView: View {
     @State private var cvv = ""
     @State private var savePaymentInfo = false
     @State private var showingPaymentSuccess = false
+    @State private var showingOrderConfirmation = false
     @State private var isProcessingPayment = false
+    @State private var completedOrder: CompletedOrder?
     
     var body: some View {
         NavigationView {
@@ -220,13 +222,13 @@ struct CartView: View {
             }
         }
         .navigationBarHidden(true)
-        .alert("Payment Successful!", isPresented: $showingPaymentSuccess) {
-            Button("OK") {
-                cartManager.clearCart()
-                isPresented = false
+        .sheet(isPresented: $showingOrderConfirmation) {
+            if let order = completedOrder {
+                OrderConfirmationView(order: order) {
+                    showingOrderConfirmation = false
+                    isPresented = false
+                }
             }
-        } message: {
-            Text("Your order has been processed successfully!")
         }
         .onAppear {
             loadSavedPaymentInfo()
@@ -283,7 +285,8 @@ struct CartView: View {
             // For now, we'll simulate the payment process
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                 self.isProcessingPayment = false
-                self.showingPaymentSuccess = true
+                self.createCompletedOrder(paymentMethod: "Apple Pay")
+                self.showingOrderConfirmation = true
             }
         } else {
             // Apple Pay not available, fall back to credit card
@@ -309,8 +312,33 @@ struct CartView: View {
         // Simulate payment processing
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             isProcessingPayment = false
-            showingPaymentSuccess = true
+            createCompletedOrder(paymentMethod: "Credit Card")
+            showingOrderConfirmation = true
         }
+    }
+    
+    /// Creates a completed order object for the confirmation screen
+    private func createCompletedOrder(paymentMethod: String) {
+        completedOrder = CompletedOrder(
+            orderNumber: generateOrderNumber(),
+            items: cartManager.items,
+            subtotal: cartManager.totalPrice,
+            tax: cartManager.totalPrice * 0.08,
+            total: cartManager.totalPrice * 1.08,
+            paymentMethod: paymentMethod,
+            customerName: customerName.isEmpty ? "Guest" : customerName,
+            customerEmail: customerEmail.isEmpty ? nil : customerEmail,
+            orderDate: Date(),
+            estimatedDelivery: Calendar.current.date(byAdding: .minute, value: Int.random(in: 15...45), to: Date()) ?? Date()
+        )
+        cartManager.clearCart()
+    }
+    
+    /// Generates a unique order number
+    private func generateOrderNumber() -> String {
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let random = Int.random(in: 100...999)
+        return "RC\(timestamp % 100000)\(random)"
     }
     
     /// Loads previously saved payment information if available
@@ -736,6 +764,327 @@ struct PaymentTextField: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Order Confirmation View
+
+/// Beautiful order confirmation screen shown after successful payment
+struct OrderConfirmationView: View {
+    let order: CompletedOrder
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.15, green: 0.15, blue: 0.2),
+                    Color(red: 0.2, green: 0.2, blue: 0.25),
+                    Color(red: 0.25, green: 0.25, blue: 0.3)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+            
+            ScrollView {
+                VStack(spacing: 32) {
+                    Spacer(minLength: 40)
+                    
+                    // Success Animation & Header
+                    VStack(spacing: 24) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.green, Color.green.opacity(0.8)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 120, height: 120)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.3), lineWidth: 3)
+                                )
+                            
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 60, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        .scaleEffect(1.0)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: true)
+                        
+                        VStack(spacing: 12) {
+                            Text("Order Confirmed!")
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                            
+                            Text("Thank you for your purchase")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                    
+                    // Order Details Card
+                    VStack(spacing: 24) {
+                        // Order Number & Date
+                        VStack(spacing: 16) {
+                            HStack {
+                                Text("Order Details")
+                                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+                                Spacer()
+                            }
+                            
+                            VStack(spacing: 12) {
+                                OrderDetailRow(label: "Order Number", value: order.orderNumber)
+                                OrderDetailRow(label: "Date", value: formatDate(order.orderDate))
+                                OrderDetailRow(label: "Customer", value: order.customerName)
+                                if let email = order.customerEmail {
+                                    OrderDetailRow(label: "Email", value: email)
+                                }
+                                OrderDetailRow(label: "Payment", value: order.paymentMethod)
+                                OrderDetailRow(label: "Estimated Pickup", value: formatTime(order.estimatedDelivery))
+                            }
+                        }
+                        
+                        Divider()
+                            .background(Color.white.opacity(0.3))
+                        
+                        // Order Items
+                        VStack(spacing: 16) {
+                            HStack {
+                                Text("Items Ordered")
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+                                Spacer()
+                            }
+                            
+                            VStack(spacing: 12) {
+                                ForEach(order.items, id: \.id) { item in
+                                    OrderItemRow(item: item)
+                                }
+                            }
+                        }
+                        
+                        Divider()
+                            .background(Color.white.opacity(0.3))
+                        
+                        // Order Summary
+                        VStack(spacing: 12) {
+                            HStack {
+                                Text("Order Summary")
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+                                Spacer()
+                            }
+                            
+                            VStack(spacing: 8) {
+                                HStack {
+                                    Text("Subtotal")
+                                        .foregroundColor(.white.opacity(0.7))
+                                    Spacer()
+                                    Text("$\(order.subtotal, specifier: "%.2f")")
+                                        .foregroundColor(.white)
+                                }
+                                
+                                HStack {
+                                    Text("Tax")
+                                        .foregroundColor(.white.opacity(0.7))
+                                    Spacer()
+                                    Text("$\(order.tax, specifier: "%.2f")")
+                                        .foregroundColor(.white)
+                                }
+                                
+                                Divider()
+                                    .background(Color.white.opacity(0.3))
+                                
+                                HStack {
+                                    Text("Total")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Text("$\(order.total, specifier: "%.2f")")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(.green)
+                                }
+                            }
+                        }
+                    }
+                    .padding(24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.white.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            )
+                    )
+                    .padding(.horizontal, 24)
+                    
+                    // Pickup Information
+                    VStack(spacing: 16) {
+                        HStack {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.orange)
+                            
+                            Text("Pickup Information")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Your order will be ready for pickup in:")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                            
+                            Text(formatTime(order.estimatedDelivery))
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .foregroundColor(.orange)
+                            
+                            Text("You'll receive a notification when your order is ready.")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                    }
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.orange.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                            )
+                    )
+                    .padding(.horizontal, 24)
+                    
+                    // Done Button
+                    Button(action: onDismiss) {
+                        Text("Done")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.green, Color.green.opacity(0.8)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .shadow(
+                                        color: .green.opacity(0.3),
+                                        radius: 8,
+                                        x: 0,
+                                        y: 4
+                                    )
+                            )
+                    }
+                    .padding(.horizontal, 24)
+                    
+                    Spacer(minLength: 40)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Order Detail Row
+
+/// Individual row for order details
+struct OrderDetailRow: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.7))
+            
+            Spacer()
+            
+            Text(value)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+        }
+    }
+}
+
+// MARK: - Order Item Row
+
+/// Individual row for ordered items
+struct OrderItemRow: View {
+    let item: CartItem
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Product Icon
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.7))
+                    .frame(width: 40, height: 40)
+                
+                Text(String(item.product.name.prefix(2)).uppercased())
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+            
+            // Product Details
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.product.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Text("$\(item.product.price, specifier: "%.2f") each")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            
+            Spacer()
+            
+            // Quantity and Total
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("×\(item.quantity)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+                
+                Text("$\(item.totalPrice, specifier: "%.2f")")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.green)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
         )
     }

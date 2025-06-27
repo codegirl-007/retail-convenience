@@ -5,6 +5,7 @@
 ### **Payment Security (Stripe Integration)**
 - [ ] **HIGH**: Integrate Stripe SDK and Stripe Elements for secure payment processing
 - [ ] **HIGH**: Implement Stripe webhook handling for payment confirmations
+- [ ] **HIGH**: Hook up Apple Pay button to real payment processing (currently simulated)
 - [ ] **MEDIUM**: Add Stripe payment method management for saved cards
 - [ ] **MEDIUM**: Implement proper error handling for Stripe payment failures
 - [ ] **LOW**: Add Stripe fraud prevention (Radar) configuration

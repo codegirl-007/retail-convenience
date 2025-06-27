@@ -40,4 +40,21 @@ struct CartItem {
     var totalPrice: Double {
         product.price * Double(quantity)
     }
+}
+
+// MARK: - Order Models
+
+/// Represents a completed order for confirmation display
+struct CompletedOrder {
+    let id = UUID()
+    let orderNumber: String
+    let items: [CartItem]
+    let subtotal: Double
+    let tax: Double
+    let total: Double
+    let paymentMethod: String
+    let customerName: String
+    let customerEmail: String?
+    let orderDate: Date
+    let estimatedDelivery: Date
 } 
