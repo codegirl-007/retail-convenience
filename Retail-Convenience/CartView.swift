@@ -6,6 +6,23 @@
 //
 
 import SwiftUI
+import PassKit
+
+// MARK: - Payment Method Enum
+
+enum PaymentMethod: String, CaseIterable {
+    case applePay = "Apple Pay"
+    case creditCard = "Credit Card"
+    
+    var icon: String {
+        switch self {
+        case .applePay:
+            return "applelogo"
+        case .creditCard:
+            return "creditcard.fill"
+        }
+    }
+}
 
 // MARK: - Cart View
 
@@ -15,6 +32,7 @@ struct CartView: View {
     @Binding var isPresented: Bool
     
     // MARK: - Payment Form State
+    @State private var selectedPaymentMethod: PaymentMethod = .applePay
     @State private var customerName = ""
     @State private var customerEmail = ""
     @State private var cardNumber = ""
@@ -22,6 +40,7 @@ struct CartView: View {
     @State private var cvv = ""
     @State private var savePaymentInfo = false
     @State private var showingPaymentSuccess = false
+    @State private var isProcessingPayment = false
     
     var body: some View {
         NavigationView {
@@ -163,19 +182,35 @@ struct CartView: View {
                                 )
                                 .padding(.horizontal, 24)
                                 
+                                // Payment Method Selection
+                                PaymentMethodSelector(selectedMethod: $selectedPaymentMethod)
+                                    .padding(.horizontal, 24)
+                                
                                 // Payment Form
-                                PaymentForm(
-                                    customerName: $customerName,
-                                    customerEmail: $customerEmail,
-                                    cardNumber: $cardNumber,
-                                    expiryDate: $expiryDate,
-                                    cvv: $cvv,
-                                    savePaymentInfo: $savePaymentInfo,
-                                    onPayment: {
-                                        processPayment()
-                                    }
-                                )
-                                .padding(.horizontal, 24)
+                                if selectedPaymentMethod == .applePay {
+                                    ApplePaySection(
+                                        total: cartManager.totalPrice * 1.08,
+                                        onPayment: {
+                                            processApplePayPayment()
+                                        },
+                                        isProcessing: isProcessingPayment
+                                    )
+                                    .padding(.horizontal, 24)
+                                } else {
+                                    PaymentForm(
+                                        customerName: $customerName,
+                                        customerEmail: $customerEmail,
+                                        cardNumber: $cardNumber,
+                                        expiryDate: $expiryDate,
+                                        cvv: $cvv,
+                                        savePaymentInfo: $savePaymentInfo,
+                                        onPayment: {
+                                            processManualPayment()
+                                        },
+                                        isProcessing: isProcessingPayment
+                                    )
+                                    .padding(.horizontal, 24)
+                                }
                                 
                                 Spacer(minLength: 40)
                             }
@@ -200,8 +235,67 @@ struct CartView: View {
     
     // MARK: - Payment Processing
     
-    /// Processes the payment and handles success flow
-    private func processPayment() {
+    /// Processes Apple Pay payment
+    private func processApplePayPayment() {
+        isProcessingPayment = true
+        
+        // Create Apple Pay payment request
+        let paymentRequest = PKPaymentRequest()
+        paymentRequest.merchantIdentifier = "merchant.com.retailconvenience" // You'll need to register this
+        paymentRequest.supportedNetworks = [.visa, .masterCard, .amex, .discover]
+        paymentRequest.merchantCapabilities = .capability3DS
+        paymentRequest.countryCode = "US"
+        paymentRequest.currencyCode = "USD"
+        
+        // Create payment summary items
+        let items = cartManager.items.map { item in
+            PKPaymentSummaryItem(
+                label: "\(item.product.name) x\(item.quantity)",
+                amount: NSDecimalNumber(value: item.totalPrice)
+            )
+        }
+        
+        let tax = PKPaymentSummaryItem(
+            label: "Tax",
+            amount: NSDecimalNumber(value: cartManager.totalPrice * 0.08)
+        )
+        
+        let total = PKPaymentSummaryItem(
+            label: "Retail Convenience",
+            amount: NSDecimalNumber(value: cartManager.totalPrice * 1.08)
+        )
+        
+        paymentRequest.paymentSummaryItems = items + [tax, total]
+        
+        // Present Apple Pay sheet
+        if let paymentController = PKPaymentAuthorizationViewController(paymentRequest: paymentRequest) {
+            paymentController.delegate = ApplePayHandler(
+                onSuccess: {
+                    self.isProcessingPayment = false
+                    self.showingPaymentSuccess = true
+                },
+                onFailure: {
+                    self.isProcessingPayment = false
+                }
+            )
+            
+            // In a real app, you'd present this from the current view controller
+            // For now, we'll simulate the payment process
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                self.isProcessingPayment = false
+                self.showingPaymentSuccess = true
+            }
+        } else {
+            // Apple Pay not available, fall back to credit card
+            selectedPaymentMethod = .creditCard
+            isProcessingPayment = false
+        }
+    }
+    
+    /// Processes manual credit card payment
+    private func processManualPayment() {
+        isProcessingPayment = true
+        
         // Save payment info if requested
         if savePaymentInfo {
             PaymentManager.savePaymentInformation(
@@ -214,6 +308,7 @@ struct CartView: View {
         
         // Simulate payment processing
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            isProcessingPayment = false
             showingPaymentSuccess = true
         }
     }
@@ -227,6 +322,217 @@ struct CartView: View {
             expiryDate = savedInfo.expiryDate
             savePaymentInfo = true
         }
+    }
+}
+
+// MARK: - Apple Pay Handler
+
+/// Handles Apple Pay authorization callbacks
+class ApplePayHandler: NSObject, PKPaymentAuthorizationViewControllerDelegate {
+    let onSuccess: () -> Void
+    let onFailure: () -> Void
+    
+    init(onSuccess: @escaping () -> Void, onFailure: @escaping () -> Void) {
+        self.onSuccess = onSuccess
+        self.onFailure = onFailure
+    }
+    
+    func paymentAuthorizationViewController(
+        _ controller: PKPaymentAuthorizationViewController,
+        didAuthorizePayment payment: PKPayment,
+        handler completion: @escaping (PKPaymentAuthorizationResult) -> Void
+    ) {
+        // In a real app, you would:
+        // 1. Send the payment token to your Go server
+        // 2. Process the payment with Stripe
+        // 3. Return success/failure based on server response
+        
+        // For now, simulate successful payment
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
+            self.onSuccess()
+        }
+    }
+    
+    func paymentAuthorizationViewControllerDidFinish(_ controller: PKPaymentAuthorizationViewController) {
+        controller.dismiss(animated: true)
+    }
+}
+
+// MARK: - Payment Method Selector
+
+/// Component to select between Apple Pay and Credit Card payment methods
+struct PaymentMethodSelector: View {
+    @Binding var selectedMethod: PaymentMethod
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Payment Method")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Spacer()
+            }
+            
+            VStack(spacing: 12) {
+                ForEach(PaymentMethod.allCases, id: \.self) { method in
+                    PaymentMethodButton(
+                        method: method,
+                        isSelected: selectedMethod == method
+                    ) {
+                        selectedMethod = method
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Payment Method Button
+
+/// Individual payment method selection button
+struct PaymentMethodButton: View {
+    let method: PaymentMethod
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: method.icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(isSelected ? .black : .white.opacity(0.7))
+                
+                Text(method.rawValue)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(isSelected ? .black : .white.opacity(0.7))
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.green)
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? Color.white : Color.white.opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isSelected ? Color.green : Color.white.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+                    )
+            )
+        }
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+}
+
+// MARK: - Apple Pay Section
+
+/// Apple Pay payment section with styling similar to Apple Pay buttons
+struct ApplePaySection: View {
+    let total: Double
+    let onPayment: () -> Void
+    let isProcessing: Bool
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                Text("Apple Pay")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Spacer()
+            }
+            
+            VStack(spacing: 16) {
+                // Apple Pay Benefits
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "shield.checkerboard")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.green)
+                        
+                        Text("Secure payment with Touch ID or Face ID")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                        
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Image(systemName: "creditcard.and.123")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.green)
+                        
+                        Text("No need to enter card details")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                        
+                        Spacer()
+                    }
+                }
+                .padding(.bottom, 8)
+                
+                // Apple Pay Button
+                Button(action: onPayment) {
+                    HStack(spacing: 8) {
+                        if isProcessing {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "applelogo")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.white)
+                            
+                            Text("Pay with")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.white)
+                            
+                            Text("Apple Pay")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                            
+                            Text("$\(total, specifier: "%.2f")")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.black)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            )
+                    )
+                }
+                .disabled(isProcessing)
+                .opacity(isProcessing ? 0.7 : 1.0)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        )
     }
 }
 
@@ -318,6 +624,7 @@ struct PaymentForm: View {
     @Binding var cvv: String
     @Binding var savePaymentInfo: Bool
     let onPayment: () -> Void
+    let isProcessing: Bool
     
     var body: some View {
         VStack(spacing: 20) {
@@ -357,30 +664,38 @@ struct PaymentForm: View {
             }
             
             Button(action: onPayment) {
-                Text("Complete Payment")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.green, Color.green.opacity(0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                HStack(spacing: 8) {
+                    if isProcessing {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.8)
+                    } else {
+                        Text("Complete Payment")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.green, Color.green.opacity(0.8)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
-                            .shadow(
-                                color: .green.opacity(0.3),
-                                radius: 8,
-                                x: 0,
-                                y: 4
-                            )
-                    )
+                        )
+                        .shadow(
+                            color: .green.opacity(0.3),
+                            radius: 8,
+                            x: 0,
+                            y: 4
+                        )
+                )
             }
-            .disabled(customerName.isEmpty || customerEmail.isEmpty || cardNumber.isEmpty || expiryDate.isEmpty || cvv.isEmpty)
-            .opacity(customerName.isEmpty || customerEmail.isEmpty || cardNumber.isEmpty || expiryDate.isEmpty || cvv.isEmpty ? 0.5 : 1.0)
+            .disabled(isProcessing || customerName.isEmpty || customerEmail.isEmpty || cardNumber.isEmpty || expiryDate.isEmpty || cvv.isEmpty)
+            .opacity((isProcessing || customerName.isEmpty || customerEmail.isEmpty || cardNumber.isEmpty || expiryDate.isEmpty || cvv.isEmpty) ? 0.5 : 1.0)
         }
         .padding(20)
         .background(
